@@ -24,7 +24,7 @@ def plot_vector(ax, v, color, label, linestyle='-'):
 
 def main():
     print("ЧАСТЬ 1 и 2: Генерация матрицы и вычисление псевдообратной через SVD")
-    m, n = 30, 100  #Недоопределенная система (уравнений меньше, чем неизвестных)
+    m, n = 30, 100
     A = np.array([[random.gauss(0.0, 1.0) for _ in range(n)] for _ in range(m)])
     print(f"Матрица A размером {A.shape}:")
 
