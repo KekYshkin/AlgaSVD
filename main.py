@@ -10,7 +10,8 @@ def generate_matrix_with_cond(m, n, cond):
     mat_n = np.array([[random.gauss(0.0, 1.0) for _ in range(n)] for _ in range(n)])
     U, _ = np.linalg.qr(mat_m)
     V, _ = np.linalg.qr(mat_n)
-    S = np.linspace(1, 1 / cond, min(m, n))
+    r = min(m, n)
+    S = np.logspace(0, -np.log10(cond), r)
     Sigma = np.zeros((m, n))
     np.fill_diagonal(Sigma, S)
     return U.dot(Sigma).dot(V.T)
@@ -23,7 +24,7 @@ def plot_vector(ax, v, color, label, linestyle='-'):
 
 def main():
     print("ЧАСТЬ 1 и 2: Генерация матрицы и вычисление псевдообратной через SVD")
-    m, n = 3, 5  #Недоопределенная система (уравнений меньше, чем неизвестных)
+    m, n = 30, 100  #Недоопределенная система (уравнений меньше, чем неизвестных)
     A = np.array([[random.gauss(0.0, 1.0) for _ in range(n)] for _ in range(m)])
     print(f"Матрица A размером {A.shape}:")
 
@@ -43,20 +44,23 @@ def main():
     print(f"Совпадает ли наша A^+ с np.linalg.pinv? {np.allclose(A_plus, A_plus_np)}\n")
 
     print("ЧАСТЬ 3: Свойства псевдообратной матрицы Мура-Пенроуза")
-    prop1 = np.allclose(A.dot(A_plus).dot(A), A)
-    prop2 = np.allclose(A_plus.dot(A).dot(A_plus), A_plus)
-    prop3 = np.allclose(A.dot(A_plus).T, A.dot(A_plus))
-    prop4 = np.allclose(A_plus.dot(A).T, A_plus.dot(A))
+    res1 = np.linalg.norm(A.dot(A_plus).dot(A) - A)
+    res2 = np.linalg.norm(A_plus.dot(A).dot(A_plus) - A_plus)
+    res3 = np.linalg.norm(A.dot(A_plus).T - A.dot(A_plus))
+    res4 = np.linalg.norm(A_plus.dot(A).T - A_plus.dot(A))
 
-    print(f"1. A A^+ A = A           : {prop1}")
-    print(f"2. A^+ A A^+ = A^+       : {prop2}")
-    print(f"3. (A A^+)^T = A A^+     : {prop3}")
-    print(f"4. (A^+ A)^T = A^+ A     : {prop4}\n")
+    max_res = max(res1, res2, res3, res4)
+    print(f"1. Невязка A A^+ A - A       : {res1:.3e}")
+    print(f"2. Невязка A^+ A A^+ - A^+   : {res2:.3e}")
+    print(f"3. Невязка (A A^+)^T - A A^+ : {res3:.3e}")
+    print(f"4. Невязка (A^+ A)^T - A^+ A : {res4:.3e}")
+    print(f"Максимальная невязка: {max_res:.3e}")
+    print(f"Невязка не превышает 10^-12: {max_res <= 1e-12}\n")
 
     print("ЧАСТЬ 4: Проекторы на образ и ядро")
-    P_Im = A.dot(A_plus)  # Проектор на образ A (размер m x m)
-    P_Ker_orth = A_plus.dot(A)  # Проектор на ортогональное дополнение к ядру A (размер n x n)
-    P_Ker = np.eye(n) - P_Ker_orth  # Проектор на ядро A
+    P_Im = A.dot(A_plus)  #Проектор на образ A (размер m x m)
+    P_Ker_orth = A_plus.dot(A)  #Проектор на ортогональное дополнение к ядру A (размер n x n)
+    P_Ker = np.eye(n) - P_Ker_orth  #Проектор на ядро A
 
 
     #Свойства ортогональных проекторов: P^2 = P и P^T = P
@@ -64,17 +68,52 @@ def main():
     print(f"P_Ker_orth - проектор?: {np.allclose(P_Ker_orth.dot(P_Ker_orth), P_Ker_orth) and np.allclose(P_Ker_orth.T, P_Ker_orth)}\n")
     print(f"Свойство ядра: A * P_Ker = 0? : {np.allclose(A.dot(P_Ker), 0)}\n")
     #ЧАСТЬ 5: Восстановление сигнала, шум и обусловленность
+    print("ЧАСТЬ 5: Восстановление сигнала, шум и обусловленность\n")
     #Зависимость ошибки от уровня шума
-    m_exp, n_exp = 20, 50
-    A_exp = generate_matrix_with_cond(m_exp, n_exp, cond=10)
-    x_true = np.array([random.gauss(0.0, 1.0) for _ in range(n_exp)])
+    A_exp = generate_matrix_with_cond(m, n, cond=50)
+    x_true = np.array([random.gauss(0.0, 1.0) for _ in range(n)])
     x_true = np.linalg.pinv(A_exp).dot(A_exp).dot(x_true)
 
+    norm_x_true = np.linalg.norm(x_true)
+
+    print("Таблица 1: Относительная ошибка восстановления при различном уровне шума (κ = 50).")
+    print("-" * 52)
+    print(f"{'σ':<10} | {'||x_hat - x_true||':<20} | {'err':<10}")
+    print("-" * 52)
+    for sigma_tab in [0.01, 0.1, 0.5]:
+        noise_tab = sigma_tab * np.array([random.gauss(0.0, 1.0) for _ in range(m)])
+        y_noisy_tab = A_exp.dot(x_true) + noise_tab
+        x_hat_tab = np.linalg.pinv(A_exp).dot(y_noisy_tab)
+
+        abs_err = np.linalg.norm(x_hat_tab - x_true)
+        rel_err = abs_err / norm_x_true
+        print(f"{sigma_tab:<10.2f} | {abs_err:<20.3f} | {rel_err:<10.3f}")
+    print("-" * 52 + "\n")
     noise_levels = np.logspace(-4, 0, 20)
     errors_noise = []
 
+    fixed_sigma_tab2 = 0.1
+    print(f"Таблица 2: Относительная ошибка восстановления при различной обусловленности (σ = {fixed_sigma_tab2}).")
+    print("-" * 52)
+    print(f"{'κ(A)':<10} | {'||x_hat - x_true||':<20} | {'err':<10}")
+    print("-" * 52)
+    for cond_tab in [10, 100, 1000]:
+        A_cond_tab = generate_matrix_with_cond(m, n, cond_tab)
+        x_true_c_tab = np.linalg.pinv(A_cond_tab).dot(A_cond_tab).dot(np.array([random.gauss(0.0, 1.0) for _ in range(n)]))
+        norm_x_true_c = np.linalg.norm(x_true_c_tab)
+
+        noise_tab2 = fixed_sigma_tab2 * np.array([random.gauss(0.0, 1.0) for _ in range(m)])
+        y_noisy_tab2 = A_cond_tab.dot(x_true_c_tab) + noise_tab2
+
+        x_hat_tab2 = np.linalg.pinv(A_cond_tab).dot(y_noisy_tab2)
+        abs_err_c = np.linalg.norm(x_hat_tab2 - x_true_c_tab)
+        rel_err_c = abs_err_c / norm_x_true_c
+        print(f"{cond_tab:<10} | {abs_err_c:<20.3f} | {rel_err_c:<10.3f}")
+    print("-" * 52 + "\n")
+
+
     for sigma in noise_levels:
-        noise = sigma * np.array([random.gauss(0.0, 1.0) for _ in range(m_exp)])
+        noise = sigma * np.array([random.gauss(0.0, 1.0) for _ in range(m)])
         y_noisy = A_exp.dot(x_true) + noise
         x_hat = np.linalg.pinv(A_exp).dot(y_noisy)
         errors_noise.append(np.linalg.norm(x_hat - x_true))
@@ -85,9 +124,9 @@ def main():
     fixed_noise_sigma = 0.05
 
     for cond in cond_numbers:
-        A_cond = generate_matrix_with_cond(m_exp, n_exp, cond)
-        x_true_c = np.linalg.pinv(A_cond).dot(A_cond).dot(np.array([random.gauss(0.0, 1.0) for _ in range(n_exp)]))
-        y_noisy = A_cond.dot(x_true_c) + fixed_noise_sigma * np.array([random.gauss(0.0, 1.0) for _ in range(m_exp)])
+        A_cond = generate_matrix_with_cond(m, n, cond)
+        x_true_c = np.linalg.pinv(A_cond).dot(A_cond).dot(np.array([random.gauss(0.0, 1.0) for _ in range(n)]))
+        y_noisy = A_cond.dot(x_true_c) + fixed_noise_sigma * np.array([random.gauss(0.0, 1.0) for _ in range(m)])
 
         x_hat = np.linalg.pinv(A_cond).dot(y_noisy)
         errors_cond.append(np.linalg.norm(x_hat - x_true_c))
@@ -153,6 +192,46 @@ def main():
     ax.set_zlabel('Z')
     ax.set_title('Геометрия решений недоопределенной системы в 3D')
     ax.legend()
+
+    print("ЧАСТЬ 7: Самостоятельное углубление")
+    #Здесь A^T - сопряженный оператор, (A * A^T) - матрица Грама
+    print("1. Сопряженный оператор и псевдообращение:")
+    A_A_T_inv = np.linalg.inv(A.dot(A.T))
+    A_pinv_adjoint = A.T.dot(A_A_T_inv)
+    print(f"Совпадает ли формула A^T(AA^T)^-1 с np.linalg.pinv(A)? {np.allclose(A_plus_np, A_pinv_adjoint)}")
+
+    #Билинейная форма (A^+ y, x)
+    print("\n2. Билинейная форма, задаваемая псевдообратной матрицей:")
+    x_true_deep = np.array([random.gauss(0.0, 1.0) for _ in range(n)])
+    y_ideal = A.dot(x_true_deep)
+    x_hat_deep = A_plus_np.dot(y_ideal)
+
+    bilinear_form_val = np.dot(x_hat_deep, x_true_deep)
+    x_hat_norm_sq = np.dot(x_hat_deep, x_hat_deep)
+
+    print(f"Значение формы <A^+ y, x_true>: {bilinear_form_val:.6f}")
+    print(f"Квадрат нормы ||x_hat||^2:      {x_hat_norm_sq:.6f}")
+    print(f"Совпадают ли они?               {np.isclose(bilinear_form_val, x_hat_norm_sq)}")
+
+    #Обобщение на тензорные уравнения (Псевдообратный тензор)
+    print("\n3. Обобщение на тензорные уравнения:")
+    I, J, K_dim = 2, 3, 4
+    #Генерируем случайный тензор
+    T_op = np.array([[[random.gauss(0.0, 1.0) for _ in range(K_dim)] for _ in range(J)] for _ in range(I)])
+
+    T_mat = T_op.reshape(I * J, K_dim)
+    T_mat_pinv = np.linalg.pinv(T_mat)
+    T_pinv = T_mat_pinv.reshape(K_dim, I, J)
+
+    print(f"Размерность исходного тензора T: {T_op.shape}")
+    print(f"Размерность псевдообратного T^+: {T_pinv.shape}")
+
+    #Проверяем 1-е свойство Мура-Пенроуза для тензоров: T * T^+ * T = T
+    T_plus_T = np.einsum('kmn, mnl -> kl', T_pinv, T_op)
+    #T * (T^+ * T)
+    T_reconstructed = np.einsum('ijk, kl -> ijl', T_op, T_plus_T)
+
+    print(f"Свойство T * T^+ * T = T выполнено: {np.allclose(T_op, T_reconstructed)}")
 
     plt.show()
 
