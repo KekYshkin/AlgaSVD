@@ -198,10 +198,10 @@ def main():
     print("1. Сопряженный оператор и псевдообращение:")
     A_A_T_inv = np.linalg.inv(A.dot(A.T))
     A_pinv_adjoint = A.T.dot(A_A_T_inv)
-    print(f"Совпадает ли формула A^T(AA^T)^-1 с np.linalg.pinv(A)? {np.allclose(A_plus_np, A_pinv_adjoint)}")
+    print(f"Совпадает ли формула A^T(AA^T)^-1 с np.linalg.pinv(A)? {np.allclose(A_plus_np, A_pinv_adjoint)}\n")
 
     #Билинейная форма (A^+ y, x)
-    print("\n2. Билинейная форма, задаваемая псевдообратной матрицей:")
+    print("2. Билинейная форма, задаваемая псевдообратной матрицей:")
     x_true_deep = np.array([random.gauss(0.0, 1.0) for _ in range(n)])
     y_ideal = A.dot(x_true_deep)
     x_hat_deep = A_plus_np.dot(y_ideal)
@@ -211,10 +211,10 @@ def main():
 
     print(f"Значение формы <A^+ y, x_true>: {bilinear_form_val:.6f}")
     print(f"Квадрат нормы ||x_hat||^2:      {x_hat_norm_sq:.6f}")
-    print(f"Совпадают ли они?               {np.isclose(bilinear_form_val, x_hat_norm_sq)}")
+    print(f"Совпадают ли они?               {np.isclose(bilinear_form_val, x_hat_norm_sq)}\n")
 
     #Обобщение на тензорные уравнения (Псевдообратный тензор)
-    print("\n3. Обобщение на тензорные уравнения:")
+    print("3. Обобщение на тензорные уравнения:")
     I, J, K_dim = 2, 3, 4
     #Генерируем случайный тензор
     T_op = np.array([[[random.gauss(0.0, 1.0) for _ in range(K_dim)] for _ in range(J)] for _ in range(I)])
